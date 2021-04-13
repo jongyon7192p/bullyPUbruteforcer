@@ -7,3 +7,4 @@ We have gone to space and back. Now we will shoot a rock into space at 0.1 light
 2. Then make sure the .py file will go to and read the .m64 and the .dll files.
 3. Then choose the speed you want to start searching, how you want to increment your speed, and how you want to search angles for each speed value.
 4. You might wanna choose your output format such that it'll be easy to paste into our community spreadsheet here: https://docs.google.com/spreadsheets/d/1CpZFfVa3po3aT9nqWaiSEOcnkxUE-TnxnkCAwmqGU_U/ (You should ask me for edit permission. Just a single click to make a request.)
+5. Good Luck! And may Nintendo and TAS god smile upon BitFS 0x. I mean, i think we wont need THAT much luck tho, but sure why not, we're gonna make it
