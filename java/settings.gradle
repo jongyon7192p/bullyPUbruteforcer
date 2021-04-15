@@ -1,0 +1,3 @@
+rootProject.name = 'bully-pu-bruteforcer-java'
+include 'lib-sm64'
+

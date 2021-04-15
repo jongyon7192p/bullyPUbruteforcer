@@ -1,0 +1,24 @@
+io/github/jgcodes/libsm64/util/Pointers.java
+ io.github.jgcodes.libsm64.util.Pointers
+io/github/jgcodes/libsm64/Savestate.java
+ io.github.jgcodes.libsm64.Savestate
+ io.github.jgcodes.libsm64.Savestate$Info
+io/github/jgcodes/libsm64/package-info.java
+ io.github.jgcodes.libsm64.package-info
+io/github/jgcodes/libsm64/Game.java
+ io.github.jgcodes.libsm64.Game
+ io.github.jgcodes.libsm64.Game$Version
+io/github/jgcodes/libsm64/M64.java
+ io.github.jgcodes.libsm64.M64
+io/github/jgcodes/libsm64/SuperMario64.java
+ io.github.jgcodes.libsm64.SuperMario64
+io/github/jgcodes/libsm64/util/package-info.java
+ io.github.jgcodes.libsm64.util.package-info
+module-info.java
+ module-info
+io/github/jgcodes/libsm64/Input.java
+ io.github.jgcodes.libsm64.Input
+io/github/jgcodes/libsm64/util/MemoryRegion.java
+ io.github.jgcodes.libsm64.util.MemoryRegion
+io/github/jgcodes/libsm64/util/NativeException.java
+ io.github.jgcodes.libsm64.util.NativeException

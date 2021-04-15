@@ -1,0 +1,12 @@
+io/github/jgcodes/bitfs0x/BullyBruteforcer.java
+ io.github.jgcodes.bitfs0x.BullyBruteforcer
+io/github/jgcodes/bitfs0x/output/Output.java
+ io.github.jgcodes.bitfs0x.output.Output
+io/github/jgcodes/bitfs0x/util/FloatVector3.java
+ io.github.jgcodes.bitfs0x.util.FloatVector3
+io/github/jgcodes/bitfs0x/util/FloatVector2.java
+ io.github.jgcodes.bitfs0x.util.FloatVector2
+module-info.java
+ module-info
+io/github/jgcodes/bitfs0x/output/PrintStreamOutput.java
+ io.github.jgcodes.bitfs0x.output.PrintStreamOutput
