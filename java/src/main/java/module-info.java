@@ -3,8 +3,11 @@
  */
 module io.github.jgcodes.bitfs0x {
   requires io.github.jgcodes.libsm64;
+
   requires com.sun.jna;
   requires info.picocli;
+
+  requires java.sql;
   requires org.postgresql.jdbc;
 
   opens io.github.jgcodes.bitfs0x to info.picocli;
