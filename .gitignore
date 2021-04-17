@@ -1,0 +1,3 @@
+/java/build/**
+/java/.gradle/**
+/java/libsm64/build/**
