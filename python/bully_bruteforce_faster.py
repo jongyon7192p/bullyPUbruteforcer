@@ -71,8 +71,8 @@ def set_inputs(game, inputs):
 
 ################################################################################
 
-game = Game('jp', 'C:/Users/danie/libsm64/sm64_jp.dll')
-m64 = load_m64('C:/Users/danie/libsm64/1Key_4_21_13_Padded.m64')
+game = Game('jp', 'C:/LW-Program-Files/SM64 TAS/WAFEL/libsm64/sm64_jp.dll')
+m64 = load_m64('../shared/1Key_4_21_13_Padded.m64')
 
 backup = game.alloc_slot()
 backupFrame = None
@@ -161,10 +161,12 @@ for i in range(f2i(startSpeed), f2i(900000000.0)):
     #if i % 512 == 0:
         #print(i)
         #print(bullySpeed)
-    for j in range(16):
-        initialYaw=16385+2048*j+random.randint(0,2048)
-        if initialYaw>32768:
-            initialYaw+=16383
+        
+    for initialYaw in range(65535):
+        #initialYaw=16385+2048*j+random.randint(0,2048)
+        #if initialYaw>32768:
+        #    initialYaw+=16383
+
         game.load_state(backup)
         bullyX[0] = startBullyPos[0]
         bullyY[0] = startBullyPos[1]
