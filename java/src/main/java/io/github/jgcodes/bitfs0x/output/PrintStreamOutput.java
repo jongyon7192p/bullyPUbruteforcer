@@ -1,10 +1,7 @@
 package io.github.jgcodes.bitfs0x.output;
 
-import io.github.jgcodes.bitfs0x.util.FloatVector2;
 import io.github.jgcodes.bitfs0x.util.FloatVector3;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.io.PrintStream;
 
 public class PrintStreamOutput implements Output {
@@ -15,7 +12,7 @@ public class PrintStreamOutput implements Output {
   }
 
   @Override
-  public void output(FloatVector2 targetPos, int frame, FloatVector3 startPos, float startSpeed, short startYaw,
+  public void output(FloatVector3 targetPos, int frame, FloatVector3 startPos, float startSpeed, short startYaw,
                      FloatVector3 finalPos, float finalSpeed, short finalYaw) {
     System.out.printf("""
       Target: %s Frame: %d
@@ -27,5 +24,11 @@ public class PrintStreamOutput implements Output {
       startPos, startSpeed, startYaw & 0xFFFF,
       finalPos, finalSpeed, finalYaw & 0xFFFF
     );
+  }
+
+  @Override
+  public void close() {
+    if ((ps == System.out) || (ps == System.err)) return;
+    ps.close();
   }
 }

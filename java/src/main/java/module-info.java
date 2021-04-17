@@ -8,7 +8,10 @@ module io.github.jgcodes.bitfs0x {
   requires info.picocli;
 
   requires java.sql;
+  requires java.naming;
   requires org.postgresql.jdbc;
+
+  requires java.logging;
 
   opens io.github.jgcodes.bitfs0x to info.picocli;
 }

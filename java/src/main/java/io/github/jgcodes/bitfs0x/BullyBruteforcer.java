@@ -1,9 +1,9 @@
 package io.github.jgcodes.bitfs0x;
 
 import com.sun.jna.Pointer;
+import io.github.jgcodes.bitfs0x.output.DBOutput;
 import io.github.jgcodes.bitfs0x.output.Output;
 import io.github.jgcodes.bitfs0x.output.PrintStreamOutput;
-import io.github.jgcodes.bitfs0x.util.FloatVector2;
 import io.github.jgcodes.bitfs0x.util.FloatVector3;
 import io.github.jgcodes.libsm64.Game;
 import io.github.jgcodes.libsm64.Game.Version;
@@ -14,7 +14,6 @@ import io.github.jgcodes.libsm64.util.Pointers;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -26,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
-import static io.github.jgcodes.bitfs0x.util.FloatVector2.fvec2;
 import static io.github.jgcodes.bitfs0x.util.FloatVector3.fvec3;
 
 @Command(
@@ -34,26 +32,48 @@ import static io.github.jgcodes.bitfs0x.util.FloatVector3.fvec3;
   description = """
     A program which bruteforces sending a bully to space and back so it can hit Mario into a platform.
     It's pretty hard to figure out manually, that's why we're resorting to this.
+    """,
+  version = """
+    BitFS Bully PU Bruteforcer v0.1-alpha
+    Author: jgcodes2020 (superminerJG)
+    
+    For help info, do bully-bruteforcer --help
     """
 )
 public class BullyBruteforcer implements Callable<Void> {
   // Constants
   private static final FloatVector3 startBullyPos = fvec3(-2236, -2950, -566);
   private static final FloatVector3 hackMarioPos = fvec3(-1945, -2918, -715);
-  private static final short startYaw = (short) 355;
-  private static final FloatVector2 targetPos = fvec2(-1720, -460);
+  private static final FloatVector3 targetPos = fvec3(-1720, -2910, -460);
 
   // Command-line args for Picocli
   @Option(names = {"--help", "-h", "-?"}, description = "Display this help list", usageHelp = true)
   boolean sendHelpMsg;
 
-  @Parameters(index = "0", description = "Path to a valid Wafel SM64 (J) DLL", paramLabel = "<DLL PATH>")
+  @Option(names = {"--version", "-v"}, description = "Show the version help", versionHelp = true)
+  boolean sendVersionMsg;
+
+  @Option(names = {"--wafel-path", "-wp"}, description = "Path to wafel DLL", required = true)
   Path dllPath;
 
+  @Option(
+    names = {"--db-url", "-url"},
+    description = "URL of the BitFSQL database (not trademarked)",
+    required = true
+  )
+  String dbURL;
+
+  @Option(
+    names = {"--db-password", "-pw"},
+    description = "Password to the BitFSQL database (not trademarked)",
+    required = true
+  )
+  String password;
+
   @Option(names = "--min-dist", description = "how close to the original position the bully can be", defaultValue = "200")
-  float minDist = 200;
+  float minDist = 0;
   @Option(names = "--max-dist", description = "how far out from the original position the bully can be", defaultValue = "1000")
-  float maxDist = 1000;
+  float maxDist = 300;
 
   @Option(names="--min-speed", description = "the minimum speed to check", defaultValue = "2000000")
   float minSpeed = 2000000;
@@ -66,6 +86,8 @@ public class BullyBruteforcer implements Callable<Void> {
   //call method
   @Override
   public Void call() throws Exception {
+
+
     // Load SM64 and .m64
     Game game = new Game(Version.JP, dllPath);
     M64 m64 = new M64(BullyBruteforcer.class.getResourceAsStream("/assets/1Key_4_21_13_Padded.m64"));
@@ -139,60 +161,59 @@ public class BullyBruteforcer implements Callable<Void> {
     try (PrintStream fileOut = new PrintStream(new FileOutputStream("results.txt"))) {
       final List<Output> outputs = List.of(
         new PrintStreamOutput(System.out),
-        new PrintStreamOutput(fileOut)
+        new PrintStreamOutput(fileOut),
+        new DBOutput(dbURL, password)
       );
 
       // Iterate over all valid floats from minSpeed to maxSpeed
       for (int i = Float.floatToIntBits(minSpeed); i < Float.floatToIntBits(maxSpeed); i++) {
         final float bullySpeed = Float.intBitsToFloat(i);
-        if (i % 512 == 0)
-          System.err.printf("%d -> %f\n", i, bullySpeed);
+        /*if (i % 1024 == 0)
+          System.err.printf("%d -> %f\n", i, bullySpeed);*/
 
-        //reset bully pos/angle
-        bullyX.setFloat(0, startBullyPos.x());
-        bullyY.setFloat(0, startBullyPos.y());
-        bullyZ.setFloat(0, startBullyPos.z());
+        final long tmstamp = System.currentTimeMillis();
+        short bullyYaw = (short) 0;
+        do {
+          //reset bully pos/angle
+          bullyX.setFloat(0, startBullyPos.x());
+          bullyY.setFloat(0, startBullyPos.y());
+          bullyZ.setFloat(0, startBullyPos.z());
 
-        bullyHSpeed.setFloat(0, bullySpeed);
-        bullyYaw1.setShort(0, startYaw);
-        bullyYaw2.setShort(0, startYaw);
+          bullyHSpeed.setFloat(0, bullySpeed);
+          bullyYaw1.setShort(0, bullyYaw);
+          bullyYaw2.setShort(0, bullyYaw);
 
-        for (int frame = 0; frame < maxFrames; frame++) {
-          // hack mario in place and advance
-          marioX.setFloat(0, hackMarioPos.x());
-          marioY.setFloat(0, hackMarioPos.y());
-          marioZ.setFloat(0, hackMarioPos.z());
-          game.advance();
+          for (int frame = 0; frame < maxFrames; frame++) {
+            // hack mario in place and advance
+            marioX.setFloat(0, hackMarioPos.x());
+            marioY.setFloat(0, hackMarioPos.y());
+            marioZ.setFloat(0, hackMarioPos.z());
+            game.advance();
 
-          // calculate new bully pos variables
-          FloatVector3 newBullyPos = fvec3(
-            bullyX.getFloat(0),
-            bullyY.getFloat(0),
-            bullyZ.getFloat(0)
-          );
+            // calculate new bully pos variables
+            FloatVector3 newBullyPos = fvec3(
+              bullyX.getFloat(0),
+              bullyY.getFloat(0),
+              bullyZ.getFloat(0)
+            );
 
-          // determine horizontal distance to (-1720, -460)
-          final double dist = Math.hypot(bullyX.getFloat(0) + 1720d, bullyZ.getFloat(0) + 460d);
+            // determine horizontal distance to (-1720, -460)
+            final double dist = Math.hypot(bullyX.getFloat(0) + 1720d, bullyZ.getFloat(0) + 460d);
 
-          if (dist < 300) {
-            if (!positions.contains(newBullyPos)) {
-            /*System.out.printf("Start pos: %s, Speed: %f; Yaw: %d; Frame: %d; New pos: %s; Dist. to target: %f; " +
-                "Dist/Speed: %f; Yaw: %d\n",
-              startBullyPos, bullySpeed, startYaw,
-              frame + 1, newBullyPos, dist, dist/bullySpeed,
-              bullyYaw1.getShort(0)
-            );*/
+            if (dist >= minDist && dist <= maxDist) {
               for (Output output: outputs) {
                 output.output(
                   targetPos, frame,
-                  startBullyPos, bullySpeed, startYaw,
+                  startBullyPos, bullySpeed, bullyYaw,
                   newBullyPos, bullyHSpeed.getFloat(0), bullyYaw1.getShort(0)
                 );
               }
             }
-            positions.add(newBullyPos);
           }
-        }
+          bullyYaw++;
+        } while (bullyYaw != 0);
+        System.err.printf("Iterated over all angles for speed %f in %d ms\n", bullySpeed,
+          System.currentTimeMillis() - tmstamp);
       }
     }
 
@@ -203,10 +224,13 @@ public class BullyBruteforcer implements Callable<Void> {
     CommandLine cl = new CommandLine(new BullyBruteforcer());
     cl.setExitCodeExceptionMapper(exc -> {
       if (exc instanceof FileNotFoundException) {
-        return 1;
+        return 2;
       }
       else if (exc instanceof IOException) {
-        return 2;
+        return 3;
+      }
+      else if (exc != null) {
+        return 1;
       }
       return 0;
     });
