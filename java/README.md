@@ -1,6 +1,11 @@
 # Bully PU Bruteforcer, but in Java
-As if figuring out how to shoot a rock through space at 0.1 lightspeed wasn't enough, we're going to figure it out 
-faster than you could blink an eye.
+This is the Java version of the bruteforcer with some extra tools on the side.
 
-Based on [this bruteforcer](https://github.com/jongyon7192p/bullyPUbruteforcer) by jongyon7192p and others, just 
-ported to Java.
+Based on the Python version, just ported to Java.
+
+## Modules
+
+- **lib-sm64** - an API to access the Wafel decomp DLL, and some other utility classes
+- **bruteforcer** - a (currently) CLI application which exhaustively bruteforces bully movement through parallel 
+  universes
+- **searcher** - runs database queries via a GUI
