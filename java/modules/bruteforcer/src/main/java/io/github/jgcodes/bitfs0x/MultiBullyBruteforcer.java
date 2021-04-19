@@ -16,7 +16,9 @@ import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.*;
@@ -153,6 +155,7 @@ public class MultiBullyBruteforcer implements Callable<Void> {
     // Bruteforce!
     try (CompoundOutput output = new CompoundOutput(
       new PrintStreamOutput(System.out),
+      new PrintStreamOutput(new PrintStream(new FileOutputStream("results.txt"))),
       new DBOutput(dbURL, password)
     )) {
       BullyStateIterator stateIterator = new BullyStateIterator(minSpeed);
@@ -161,12 +164,12 @@ public class MultiBullyBruteforcer implements Callable<Void> {
       boolean flag = true;
       long timestamp = System.currentTimeMillis();
       for (int counter = 1; flag; counter++) {
-        if (counter % 1000 == 0) {
+        /*if (counter % 1000 == 0) {
           long next = System.currentTimeMillis();
           System.err.printf("Completed last 1000 iterations in %d ms | Avg. speed %f iters/s\n",
             next - timestamp, (1000.0 / (next - timestamp) * 1000));
           timestamp = next;
-        }
+        }*/
         //Initialize the bullies with the values we want
         for (int i = 0; i < bullies.size(); i++) {
           final BullyHandle bully = bullies.get(i);

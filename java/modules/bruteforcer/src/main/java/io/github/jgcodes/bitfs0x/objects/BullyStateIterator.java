@@ -6,11 +6,14 @@ public class BullyStateIterator implements Iterator<BullyState> {
   private int nextSpeed;
   private short nextAngle;
 
+  private long timestamp;
+
   private BullyState last;
 
   public BullyStateIterator(float minSpd) {
     this.nextSpeed = Float.floatToIntBits(minSpd);
     this.nextAngle = 0;
+    this.timestamp = System.currentTimeMillis();
   }
 
   @Override
@@ -30,6 +33,9 @@ public class BullyStateIterator implements Iterator<BullyState> {
       nextAngle += 15;
     // increment speed if angle overflows
     if (Short.compareUnsigned(nextAngle, lastAngle) < 0) {
+      long now = System.currentTimeMillis();
+      System.err.printf("Finished float %f in %d ms\n", Float.intBitsToFloat(nextSpeed), now - timestamp);
+      timestamp = now;
       nextSpeed++;
     }
 
