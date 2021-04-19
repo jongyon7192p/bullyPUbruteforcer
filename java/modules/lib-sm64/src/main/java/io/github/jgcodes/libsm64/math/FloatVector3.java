@@ -23,4 +23,8 @@ public record FloatVector3(float x, float y, float z) {
   public FloatVector2 horizontal() {
     return new FloatVector2(x, z);
   }
+
+  public double hDist(FloatVector3 that) {
+    return Math.hypot(that.x - this.x, that.z - this.z);
+  }
 }

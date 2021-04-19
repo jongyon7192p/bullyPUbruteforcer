@@ -4,6 +4,7 @@ import com.sun.jna.Native;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
 import io.github.jgcodes.libsm64.util.MemoryRegion;
+import io.github.jgcodes.libsm64.util.Pointers;
 
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
@@ -39,8 +40,8 @@ public class Game {
     }
   }
   // Proxy interfaces
-  public final SuperMario64 sm64;
-  public final NativeLibrary sm64Lib;
+  private final SuperMario64 sm64;
+  private final NativeLibrary sm64Lib;
   // Private properties
   final Version version;
 
@@ -66,6 +67,16 @@ public class Game {
 
   public Pointer locate(String name) {
     return sm64Lib.getGlobalVariableAddress(name);
+  }
+
+  public Pointer pointVirtual(int addr) {
+    return new Pointer(Pointers.getHandle(sm64Lib) + addr);
+  }
+
+  public Pointer objectSlot(int slot) {
+    Pointer p = locate("gObjectPool");
+    Pointers.incr(p, 1392 * slot);
+    return p;
   }
 
   private void setInput(Input input) {

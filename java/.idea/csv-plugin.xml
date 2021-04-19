@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\modules\bruteforcer\src\main\java\io\github\jgcodes\bitfs0x\MultiBullyBruteforcer.java">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\src\main\java\io\github\branpk\wafel\Game.java">
           <value>
             <Attribute>

@@ -8,34 +8,32 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Savestate {
-  private static record Info(ByteBuffer saveBuffer, ByteBuffer nativeBuffer, int size) {}
+  private static record Info(ByteBuffer saveBuffer, ByteBuffer nativeBuffer) {}
   private final List<Info> infoList;
   private final Game game;
 
   public Savestate(Game game) {
     this.game = game;
 
-    final long base = Pointers.getHandle(game.sm64Lib);
-
     infoList = Arrays.stream(game.version.segments())
       .map(region -> {
-        Pointer p = new Pointer(base + region.address());
+        Pointer p = game.pointVirtual(region.address());
 
         ByteBuffer sBuffer = ByteBuffer.allocate(region.size());
         ByteBuffer nBuffer = p.getByteBuffer(0, region.size());
-        return new Info(sBuffer, nBuffer, region.size());
+        return new Info(sBuffer, nBuffer);
       }).toList();
   }
 
   public void save() {
-    long baseAddress = Pointers.getHandle(game.sm64Lib);
     for (Info info: infoList) {
+      // copy DLL data to save buffer
       info.saveBuffer().clear().put(info.nativeBuffer().flip());
     }
   }
   public void load() {
-    long baseAddress = Pointers.getHandle(game.sm64Lib);
     for (Info info: infoList) {
+      // copy save buffer to DLL
       info.nativeBuffer().clear().put(info.saveBuffer().flip());
     }
   }
