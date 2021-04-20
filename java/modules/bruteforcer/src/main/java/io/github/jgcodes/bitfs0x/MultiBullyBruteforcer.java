@@ -1,6 +1,7 @@
 package io.github.jgcodes.bitfs0x;
 
 import com.sun.jna.Pointer;
+import io.github.jgcodes.bitfs0x.misc.LogLevelConverter;
 import io.github.jgcodes.bitfs0x.objects.*;
 import io.github.jgcodes.bitfs0x.output.CompoundOutput;
 import io.github.jgcodes.bitfs0x.output.DBOutput;
@@ -23,6 +24,8 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static io.github.jgcodes.libsm64.math.FloatVector3.fvec3;
 
@@ -80,16 +83,25 @@ public class MultiBullyBruteforcer implements Callable<Void> {
     defaultValue = "300")
   float maxDist = 300;
 
-  @Option(names="--min-speed", description = "the minimum speed to check", defaultValue = "2000000")
+  @Option(names = "--min-speed", description = "the minimum speed to check", defaultValue = "2000000")
   float minSpeed = 2000000;
-  @Option(names="--max-speed", description = "the maximum speed to check", defaultValue = "10000000")
+  @Option(names = "--max-speed", description = "the maximum speed to check", defaultValue = "10000000")
   float maxSpeed = 10000000;
 
-  @Option(names="--max-frames", description = "the maximum number of frames to simulate before giving up")
+  @Option(names = "--max-frames", description = "the maximum number of frames to simulate before giving up")
   int maxFrames = 25;
+
+  @Option(
+    names = {"-log", "--log-level"}, description = "the log level to use",
+    defaultValue = "warning", converter = LogLevelConverter.class
+  )
+  Level logLevel = Level.WARNING;
 
   @Override
   public Void call() throws Exception {
+    Logger log = Logger.getLogger(MultiBullyBruteforcer.class.getCanonicalName());
+    log.setLevel(logLevel);
+    // Configure game and m64
     Game game = new Game(Version.JP, dllPath);
     M64 m64 = new M64(MultiBullyBruteforcer.class.getResourceAsStream("/assets/1Key_4_21_13_Padded.m64"));
 
@@ -164,12 +176,12 @@ public class MultiBullyBruteforcer implements Callable<Void> {
       boolean flag = true;
       long timestamp = System.currentTimeMillis();
       for (int counter = 1; flag; counter++) {
-        /*if (counter % 1000 == 0) {
+        if (counter % 1000 == 0) {
           long next = System.currentTimeMillis();
-          System.err.printf("Completed last 1000 iterations in %d ms | Avg. speed %f iters/s\n",
-            next - timestamp, (1000.0 / (next - timestamp) * 1000));
+          log.info(String.format("Completed last 1000 iterations in %d ms | Avg. speed %f iterations/s\n",
+            next - timestamp, (1000.0 / (next - timestamp) * 1000)));
           timestamp = next;
-        }*/
+        }
         //Initialize the bullies with the values we want
         for (int i = 0; i < bullies.size(); i++) {
           final BullyHandle bully = bullies.get(i);

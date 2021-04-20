@@ -14,4 +14,5 @@ module io.github.jgcodes.bitfs0x {
   requires java.logging;
 
   opens io.github.jgcodes.bitfs0x to info.picocli;
+  opens io.github.jgcodes.bitfs0x.misc to info.picocli;
 }
