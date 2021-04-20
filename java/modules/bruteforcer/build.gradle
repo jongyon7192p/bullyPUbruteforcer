@@ -1,0 +1,47 @@
+plugins {
+  id 'application'
+  id 'org.beryx.jlink' version '2.23.6'
+}
+
+group 'io.github.jgcodes'
+version '1.0-SNAPSHOT'
+
+repositories {
+  mavenCentral()
+}
+
+java {
+  modularity.inferModulePath = true
+}
+
+application {
+  mainModule.set("io.github.jgcodes.bitfs0x")
+  mainClassName = "io.github.jgcodes.bitfs0x.MultiBullyBruteforcer"
+}
+
+dependencies {
+  implementation project(':modules:lib-sm64')
+  implementation 'info.picocli:picocli:4.6.1'
+  implementation 'org.postgresql:postgresql:42.2.19'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.1'
+  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.1'
+}
+
+jlink {
+  options.set(['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages'])
+
+}
+
+test {
+  useJUnitPlatform()
+}
+
+// Custom tasks
+def copySharedResources = tasks.register('copySharedResources', Copy) {
+  it.from("../shared")
+  it.into("bruteforcer/src/main/resources/assets")
+}
+tasks.named("processResources") {
+  it.dependsOn(copySharedResources)
+}

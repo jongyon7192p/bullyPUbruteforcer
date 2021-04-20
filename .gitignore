@@ -1,3 +1,2 @@
-/java/build/**
-/java/.gradle/**
-/java/*/build/**
+java/.gradle/**
+/java/modules/*/build/**
