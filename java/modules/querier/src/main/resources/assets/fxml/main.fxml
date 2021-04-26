@@ -6,9 +6,22 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="assets.fxml.Main"
-            prefHeight="400.0" prefWidth="600.0">
-
-</AnchorPane>
+<?import javafx.geometry.Insets?>
+<Scene xmlns="http://javafx.com/javafx"
+       xmlns:fx="http://javafx.com/fxml"
+       fx:controller="io.github.jgcodes.bitfs0x.querier.Controller"
+       width="500" height="500">
+  <BorderPane>
+    <left>
+      <VBox>
+        <BorderPane.margin>
+          <Insets right="5" />
+        </BorderPane.margin>
+        <Button text="Run query..."/>
+      </VBox>
+    </left>
+    <center>
+      <TableView fx:id="table"/>
+    </center>
+  </BorderPane>
+</Scene>

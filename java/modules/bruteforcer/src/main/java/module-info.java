@@ -1,5 +1,5 @@
 /**
- * Helps us decide how to send rocks through the multiverse just to hit us in the back.
+ * Contains Wafel-based bruteforcers and verifiers.
  */
 module io.github.jgcodes.bitfs0x {
   requires io.github.jgcodes.libsm64;

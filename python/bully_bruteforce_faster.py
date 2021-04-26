@@ -72,7 +72,7 @@ def set_inputs(game, inputs):
 ################################################################################
 
 game = Game('jp', 'C:/LW-Program-Files/SM64 TAS/WAFEL/libsm64/sm64_jp.dll')
-m64 = load_m64('../shared/1Key_4_21_13_Padded.m64')
+m64 = load_m64('C:/Users/jacky/OneDrive/Documents/GitHub/bullyPUbruteforcer/java/modules/bruteforcer/src/main/resources/assets/1Key_4_21_13_Padded.m64')
 
 backup = game.alloc_slot()
 backupFrame = None

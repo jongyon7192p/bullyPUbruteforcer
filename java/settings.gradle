@@ -2,6 +2,6 @@ rootProject.name = 'bully-pu-bruteforcer-java'
 
 include ':modules:lib-sm64'
 include ':modules:bruteforcer'
-include ':modules:db-updater'
-include 'querier'
+include ':modules:querier'
+include ':modules:fast-bruteforcer'
 

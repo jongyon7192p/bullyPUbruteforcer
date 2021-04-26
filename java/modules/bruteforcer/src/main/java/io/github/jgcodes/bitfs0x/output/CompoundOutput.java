@@ -16,10 +16,10 @@ public class CompoundOutput implements Output {
   }
 
   @Override
-  public void output(FloatVector3 targetPos, int frame, FloatVector3 startPos, float startSpeed, short startYaw,
-                     FloatVector3 finalPos, float finalSpeed, short finalYaw) throws Exception {
+  public void write(FloatVector3 targetPos, int frame, FloatVector3 startPos, float startSpeed, short startYaw,
+                    FloatVector3 finalPos, float finalSpeed, short finalYaw) throws Exception {
     for (Output output: outputs)
-      output.output(targetPos, frame, startPos, startSpeed, startYaw, finalPos, finalSpeed, finalYaw);
+      output.write(targetPos, frame, startPos, startSpeed, startYaw, finalPos, finalSpeed, finalYaw);
   }
 
   @Override

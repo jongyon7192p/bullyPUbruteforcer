@@ -1,18 +1,33 @@
 plugins {
-    id 'java'
+  id 'application'
+  id "com.dua3.javafxgradle7plugin" version "0.0.9"
 }
 
-version 'unspecified'
+group 'io.github.jgcodes'
+version '1.0-alpha'
 
 repositories {
-    mavenCentral()
+  mavenCentral()
+}
+
+application {
+  mainModule.set("io.github.jgcodes.bitfs0x.querier")
+  mainClass.set("io.github.jgcodes.bitfs0x.querier.Launcher")
 }
 
 dependencies {
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+  implementation 'org.postgresql:postgresql:42.2.19'
+  implementation 'org.jetbrains:annotations:13.0'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+}
+
+javafx {
+  modules 'javafx.controls', 'javafx.fxml'
+  version '16'
 }
 
 test {
-    useJUnitPlatform()
+  useJUnitPlatform()
 }

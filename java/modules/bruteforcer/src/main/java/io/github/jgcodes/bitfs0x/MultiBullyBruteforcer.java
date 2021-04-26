@@ -1,10 +1,11 @@
 package io.github.jgcodes.bitfs0x;
 
 import com.sun.jna.Pointer;
+import io.github.jgcodes.bitfs0x.misc.FixedSizeList;
 import io.github.jgcodes.bitfs0x.misc.LogLevelConverter;
 import io.github.jgcodes.bitfs0x.objects.*;
 import io.github.jgcodes.bitfs0x.output.CompoundOutput;
-import io.github.jgcodes.bitfs0x.output.DBOutput;
+import io.github.jgcodes.bitfs0x.output.FileOutput;
 import io.github.jgcodes.bitfs0x.output.PrintStreamOutput;
 import io.github.jgcodes.libsm64.Game;
 import io.github.jgcodes.libsm64.Game.Version;
@@ -17,9 +18,7 @@ import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.*;
@@ -99,20 +98,22 @@ public class MultiBullyBruteforcer implements Callable<Void> {
 
   @Override
   public Void call() throws Exception {
+    System.out.println(System.getProperty("user.dir"));
+
     Logger log = Logger.getLogger(MultiBullyBruteforcer.class.getCanonicalName());
     log.setLevel(logLevel);
     // Configure game and m64
     Game game = new Game(Version.JP, dllPath);
     M64 m64 = new M64(MultiBullyBruteforcer.class.getResourceAsStream("/assets/1Key_4_21_13_Padded.m64"));
 
-    Savestate st = new Savestate(game);
+    Savestate backup = new Savestate(game);
 
     // Load and run the modified 1-Key TAS up to BitFS.
     List<Input> inputs = m64.getInputs();
     for (int frame = 0; frame < inputs.size(); frame++) {
       game.advance(inputs.get(frame));
 
-      // This is the "special
+      // This is the "special frame"
       if (frame == 3285) {
         final Pointer objPool = game.locate("gObjectPool");
         /*
@@ -129,14 +130,16 @@ public class MultiBullyBruteforcer implements Callable<Void> {
           }
         }
         /*
-         * Make all the other objects behave like THE bully.
-         * If this were rendered, we'd see coins, goombas, platforms, etc. flying at PU speed.
+         * Copy our most favourite bully, overwriting many platforms, coins and enemies.
          */
+        System.out.println(new Bully(game.objectSlot(27)));
         for (int slot: bullySlots) {
           GObjects.copy(game, 27, slot);
         }
-        //Savestate and break.
-        st.save();
+        //Savestate.
+        backup.save();
+        System.out.println("dumping");
+        backup.dump();
         break;
       }
     }
@@ -152,39 +155,33 @@ public class MultiBullyBruteforcer implements Callable<Void> {
     }
 
     // Initialize and cache the bully pointers.
-    final List<BullyHandle> bullies = bullySlots.stream().map(slot -> {
+    final List<Bully> bullies = bullySlots.stream().map(slot -> {
       Pointer slotPtr = game.objectSlot(slot);
-      return new BullyHandle(
-        Pointers.incrNew(slotPtr, 240),
-        Pointers.incrNew(slotPtr, 244),
-        Pointers.incrNew(slotPtr, 248),
-        Pointers.incrNew(slotPtr, 264),
-        Pointers.incrNew(slotPtr, 280),
-        Pointers.incrNew(slotPtr, 292)
-      );
+      return new Bully(slotPtr);
     }).toList();
 
     // Bruteforce!
     try (CompoundOutput output = new CompoundOutput(
       new PrintStreamOutput(System.out),
-      new PrintStreamOutput(new PrintStream(new FileOutputStream("results.txt"))),
-      new DBOutput(dbURL, password)
+      new FileOutput("results.txt")/*,
+      new DBOutput(dbURL, password)*/
     )) {
       BullyStateIterator stateIterator = new BullyStateIterator(minSpeed);
-      List<BullyState> states = Arrays.asList(new BullyState[bullies.size()]);
+      List<BullyState> states = new FixedSizeList<>(bullies.size());
 
       boolean flag = true;
       long timestamp = System.currentTimeMillis();
       for (int counter = 1; flag; counter++) {
-        if (counter % 1000 == 0) {
+        /*if (counter % 1000 == 0) {
           long next = System.currentTimeMillis();
           log.info(String.format("Completed last 1000 iterations in %d ms | Avg. speed %f iterations/s\n",
             next - timestamp, (1000.0 / (next - timestamp) * 1000)));
           timestamp = next;
-        }
+        }*/
         //Initialize the bullies with the values we want
+        backup.load();
         for (int i = 0; i < bullies.size(); i++) {
-          final BullyHandle bully = bullies.get(i);
+          final Bully bully = bullies.get(i);
 
           BullyState state = stateIterator.next();
           if (state.speed() >= maxSpeed) flag = false;
@@ -202,15 +199,19 @@ public class MultiBullyBruteforcer implements Callable<Void> {
 
           // Check if any of the bullies are candidates
           for (int i = 0; i < bullies.size(); i++) {
-            final BullyHandle bully = bullies.get(i);
+            final Bully bully = bullies.get(i);
             final BullyState state = states.get(i);
             FloatVector3 bullyPos = bully.getPosition();
 
-            if (bullyPos.hDist(targetPos) <= maxDist) {
-              output.output(
-                targetPos, frame,
+            // Check that it is close enough, it has moved, and it isn't going to boil
+            if (
+              bullyPos.hDist(targetPos) <= maxDist &&
+              bullyPos.hDist(startBullyPos) > 0 &&
+              bullyPos.y() > -3071.0f) {
+              output.write(
+                targetPos, frame + 1,
                 startBullyPos, state.speed(), state.angle(),
-                bullyPos, bully.hSpeed().getFloat(0), bully.yaw1().getShort(0)
+                bullyPos, bully.getHSpeed(), bully.getYaw1()
               );
             }
           }

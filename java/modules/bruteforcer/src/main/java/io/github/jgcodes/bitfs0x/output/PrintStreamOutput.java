@@ -12,19 +12,21 @@ public class PrintStreamOutput implements Output {
   }
 
   @Override
-  public void output(FloatVector3 targetPos, int frame, FloatVector3 startPos, float startSpeed, short startYaw,
-                     FloatVector3 finalPos, float finalSpeed, short finalYaw) {
+  public void write(FloatVector3 targetPos, int frame, FloatVector3 startPos, float startSpeed, short startYaw,
+                    FloatVector3 finalPos, float finalSpeed, short finalYaw) {
     System.out.printf("""
         Target: %s Frame: %d
-        Initial | Pos: %s Speed: %f Yaw: %d
-        --------+--------------------------
-        Final   | Pos: %s Speed: %f Yaw: %d
-              
-              
+        Initial │ Pos: %s Speed: %f Yaw: %d
+        ────────┼───────────────────────────────────────────────────────────────────────────
+        Final   │ Pos: %s Speed: %f Yaw: %d
+        ────────┴───────────────────────────────────────────────────────────────────────────
+        Distance to target: %f
+        
         """,
       targetPos, frame,
       startPos, startSpeed, startYaw & 0xFFFF,
-      finalPos, finalSpeed, finalYaw & 0xFFFF
+      finalPos, finalSpeed, finalYaw & 0xFFFF,
+      finalPos.hDist(targetPos)
     );
   }
 

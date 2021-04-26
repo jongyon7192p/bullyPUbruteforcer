@@ -11,8 +11,9 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/modules" />
             <option value="$PROJECT_DIR$/modules/bruteforcer" />
-            <option value="$PROJECT_DIR$/modules/db-updater" />
+            <option value="$PROJECT_DIR$/modules/fast-bruteforcer" />
             <option value="$PROJECT_DIR$/modules/lib-sm64" />
+            <option value="$PROJECT_DIR$/modules/querier" />
           </set>
         </option>
       </GradleProjectSettings>

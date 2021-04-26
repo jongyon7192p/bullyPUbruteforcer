@@ -32,18 +32,17 @@ public class BullyStateIterator implements Iterator<BullyState> {
     BullyState result = new BullyState(Float.intBitsToFloat(nextSpeed), nextAngle);
 
     final short lastAngle = nextAngle;
+    final int nextIntended;
     if (nextAngle % 16 == 0)
-      nextAngle += 1;
+      nextIntended = (lastAngle & 0xFFFF) + 1;
     else
-      nextAngle += 15;
-    // increment speed if angle overflows
-    if (Short.compareUnsigned(nextAngle, lastAngle) < 0) {
-      long now = System.currentTimeMillis();
-      Logger.getLogger(MultiBullyBruteforcer.class.getCanonicalName())
-        .info(String.format("Done float %f in %d ms", Float.intBitsToFloat(nextSpeed), now - timestamp));
-      timestamp = now;
+      nextIntended = (lastAngle & 0xFFFF) + 15;
+
+    // If there is overflow, at least one of the upper 16 bits are set
+    nextAngle = (short) nextIntended;
+    if ((nextIntended & 0xFFFF0000) != 0)
       nextSpeed++;
-    }
+
 
     return result;
   }

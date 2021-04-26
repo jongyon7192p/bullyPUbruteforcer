@@ -201,7 +201,7 @@ public class SingleBullyBruteforcer implements Callable<Void> {
             final double dist = newBullyPos.hDist(targetPos);
 
             if (dist <= maxDist) {
-              output.output(
+              output.write(
                 targetPos, frame,
                 startBullyPos, bullySpeed, bullyYaw,
                 newBullyPos, bullyHSpeed.getFloat(0), bullyYaw1.getShort(0)
