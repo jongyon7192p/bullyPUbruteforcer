@@ -27,6 +27,7 @@ rem Set CLI arguments
 set /p args="Command line arguments: "
 
 rem Run generated exe
+pushd
 echo Program output
 echo ----------------------------------------------
 build\main.exe %args% > con
@@ -35,6 +36,7 @@ echo ----------------------------------------------
 pause
 
 rem reset cmd prompt
+popd
 cls
 ver
 echo (c) Microsoft Corporation. All rights reserved.
