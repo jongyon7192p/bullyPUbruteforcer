@@ -13,28 +13,31 @@ YOU WILL HAVE TO DEAL WITH THAT YOURSELF.
 */
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
+#include <sstream>
 
 #include <string>
+
 #include <array>
 #include <vector>
 #include <bitset>
+#include <tuple>
+
+#include <limits>
+#include <chrono>
 
 #include <cstring>
-#include <cstdlib>
+#include <cmath>
 
 #include <windows.h>
 #include <tchar.h>
 
 // Type macros
-#define u8 uint8_t
-#define u16 uint16_t
-#define u32 uint32_t
-#define u64 uint64_t
 #define wcstr wchar_t*
 #define cstr char*
 
-// Function calls
+// Function macros
 #define call_void_fn(handle, name) ((void (*)(void))GetProcAddress(handle, name))()
 #define assert(cond, msg, code) \
   if (!(cond))                  \
@@ -42,22 +45,23 @@ YOU WILL HAVE TO DEAL WITH THAT YOURSELF.
     cout << msg << endl;        \
     exit(code);                 \
   }
+#define array_size(arr, type) (sizeof(arr) / sizeof(type))
+
+#define i2f(i) (*(float*)&i)
+#define f2i(i) (*(uint32_t*)&i)
 
 // Constant macros
-#define null NULL
+#define SPECIAL_FRAME 3285
+#define TIME_NOW std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
 
-#define OBJ_SIZE 1392
-#define OBJ_START_OFFSET 160
-#define OBJ_COPIABLE_SIZE (OBJ_SIZE - OBJ_START_OFFSET)
+using std::cout, std::cerr, std::endl, std::fstream, std::ios_base, std::stringstream;
+using std::string, std::vector, std::array, std::tuple;
 
-using std::cout, std::cerr, std::endl, std::ifstream, std::ofstream;
-using std::string, std::vector, std::array;
-
-// separate sm64 functions from bruteforcer
+// SM64-related functions
 namespace libsm64 {
   struct MemRegion {
-    u64 address;
-    u64 size;
+    const intptr_t address;
+    const intptr_t size;
   };
 
   enum Version {
@@ -73,12 +77,11 @@ namespace libsm64 {
   };
 
   struct InputFrame {
-    u16 buttons;
-    u8 stick_x, stick_y;
+    uint16_t buttons;
+    int8_t stick_x, stick_y;
   };
-
-  using Slot = std::array<vector<u8>, 2>;
-
+  using Slot = array<vector<uint8_t>, 2>;
+  // Direct bindings to libsm64.
   class Game {
   private:
     Version m_version;
@@ -109,154 +112,228 @@ namespace libsm64 {
     }
 
     Slot alloc_slot() {
-      Slot buffers = {};
-      for (int i = 0; i < 2; i++) {
-        buffers[i] = vector<u8>(m_regions[i].size);
-      }
+      Slot buffers = {
+        vector<uint8_t>(m_regions[0].size + 65536),
+        vector<uint8_t>(m_regions[1].size + 65536)
+      };
       return buffers;
     }
 
-    void save_slot(Slot slot) {
+    void save_state(Slot& slot) {
+      uint8_t* const _dll = (uint8_t*)((void*)m_dll);
       for (int i = 0; i < 2; i++) {
-        MemRegion region = m_regions[i];
-        vector<u8>& buffer = slot[i];
-        memmove(&buffer[0], m_dll + region.address, region.size);
+        MemRegion segment = m_regions[i];
+        std::vector<uint8_t>& buffer = slot[i];
+        memmove(&buffer[0], _dll + segment.address, segment.size);
       }
     }
 
-    void load_slot(Slot slot) {
+    void load_state(Slot& slot) {
+      uint8_t* const _dll = (uint8_t*)((void*)m_dll);
       for (int i = 0; i < 2; i++) {
-        MemRegion region = m_regions[i];
-        vector<u8>& buffer = slot[i];
-        memmove(&buffer[0], m_dll + region.address, region.size);
+        MemRegion segment = m_regions[i];
+        std::vector<uint8_t>& buffer = slot[i];
+        memmove(_dll + segment.address, &buffer[0], segment.size);
       }
     }
 
     template <typename T = void>
     // Locates a symbol within libsm64 and optionally applies an offset.
-    T* addr(cstr name, u64 off = 0) {
+    T* addr(string name, size_t off = 0) {
       // cast to byte pointer, apply offset, then cast to T
       return reinterpret_cast<T*>(
-        reinterpret_cast<u8*>(GetProcAddress(m_dll, name)) + off);
+        reinterpret_cast<uint8_t*>(GetProcAddress(m_dll, name.c_str())) + off);
     }
 
     void set_input(InputFrame input) {
-      *addr<u16>("gControllerPads", 0) = input.buttons;
-      *addr<u8>("gControllerPads", 2) = input.stick_x;
-      *addr<u8>("gControllerPads", 3) = input.stick_y;
+      *addr<uint16_t>("gControllerPads", 0) = input.buttons;
+      *addr<uint8_t>("gControllerPads", 2) = input.stick_x;
+      *addr<uint8_t>("gControllerPads", 3) = input.stick_y;
     }
   };
-  // Iterator over an M64 file.
-  struct M64 {
-    //Constructs a new M64.
-    M64(string file) {
-      m_filename = string(file);
+  // Essentially represents an M64.
+  using M64 = vector<InputFrame>;
+  // Loads an entire M64.
+  M64 load_m64(string path) {
+    M64 result = M64();
+    fstream file = fstream(path, ios_base::in | ios_base::binary);
+    //read length first (0x018, found in stroop)
+    file.seekg(0x018, ios_base::beg);
+    char inlen_data[4];
+    file.read(inlen_data, 4);
+    const uint32_t frames =
+      ((uint8_t)inlen_data[0]) |
+      ((uint8_t)inlen_data[1] << 8) |
+      ((uint8_t)inlen_data[2] << 16) |
+      ((uint8_t)inlen_data[3] << 24);
+    //seek to data
+    file.seekg(0x100, ios_base::beg);
 
-      m_file = ifstream();
-      m_file.open(file);
-      m_file.seekg(0x400);
-
-      m_frame = 0;
-
-      m_current = { 0, 0, 0 };
-      this->operator++();
+    //allocated on the heap in case the stack can't hold that much
+    char* next = new char[4 * frames];
+    file.read(next, 4 * frames);
+    for (uint16_t i = 0; i < frames; i++) {
+      const uint16_t nextp = i * 4;
+      const uint16_t buttons =
+        ((uint8_t)next[nextp] << 8) |
+        ((uint8_t)next[nextp + 1]);
+      result.push_back(InputFrame{
+        buttons,
+        ((int8_t)next[nextp + 2]),
+        ((int8_t)next[nextp + 3])
+        });
     }
-
-    //Constructs a new M64 from another M64. (copy construction)
-    M64(const M64& from) : m_filename(string(from.m_filename)), m_frame(from.m_frame) {
-      m_file = ifstream();
-      m_file.open(m_filename);
-
-      if (from.m_frame) {
-        m_file.seekg(0x400 + (from.m_frame * 4) - 4);
-        this->operator++();
-      }
-      else {
-        m_file.seekg(0x400);
-      }
-
-      this->operator++();
-    }
-
-    ~M64() {
-      m_file.close();
-    }
-
-    M64& operator++() {
-      u8 next[4];
-      m_frame++;
-      m_file.read((char*)next, 4);
-      m_current.buttons = ((u16)next[0] << 8) | ((u16)next[1]);
-      m_current.stick_x = next[2];
-      m_current.stick_y = next[3];
-      return *this;
-    }
-
-    M64& operator++(int) {
-      M64 res = *this;
-      ++(*this);
-      return res;
-    }
-
-    const InputFrame& operator*() {
-      return m_current;
-    }
-
-    const InputFrame* operator->() {
-      return &m_current;
-    }
-
-    // Calls the copy constructor. (copy assignment)
-    M64 operator=(M64& other) {
-      return M64(other);
-    }
-
-    friend bool operator==(const M64& a, const M64& b) {
-      return a.m_frame == b.m_frame;
-    }
-
-    friend bool operator!=(const M64& a, const M64& b) {
-      return a.m_frame != b.m_frame;
-    }
-
-    u32 frame() { return m_frame; }
-    bool eof() {
-      return m_file.eof();
-    }
-
-  private:
-    u32 m_frame;
-    string m_filename;
-    ifstream m_file;
-    InputFrame m_current;
-  };
-  // Copies an object from src to dst.
-  void copy_object(Game g, int src, int dst) {
-    void* aPtr = g.addr("gObjectPool", (src * OBJ_SIZE) + OBJ_START_OFFSET);
-    void* bPtr = g.addr("gObjectPool", (dst * OBJ_SIZE) + OBJ_START_OFFSET);
-    memcpy(bPtr, aPtr, OBJ_COPIABLE_SIZE);
+    // delete it after (ik this is bad c++ but i only needed an array, not a vector that's gonna reallocate itself)
+    delete[] next;
+    return result;
   }
 
-  void dump(Slot slot) {
-    ofstream dump = ofstream();
-    dump.open("dump2.bin");
+  void copy_object(Game& game, size_t src, size_t dst) {
+    uint8_t* const src_ptr = game.addr<uint8_t>("gObjectPool", (src * 1392) + 160);
+    uint8_t* const dst_ptr = game.addr<uint8_t>("gObjectPool", (dst * 1392) + 160);
+    memmove(dst_ptr, src_ptr, 1232);
+  }
+
+  void dump(Slot& slot) {
+    fstream dump = fstream(
+      "dump.bin",
+      ios_base::out | ios_base::binary
+    );
     for (int i = 0; i < 2; i++) {
-      dump.write((char*)slot[i].data(), (u64)slot[i].size());
+      dump.write((char*)slot[i].data(), (uint64_t)slot[i].size());
     }
   }
 };
 
 using libsm64::Game, libsm64::Version, libsm64::M64;
-using std::ios;
 
 /*
 Bruteforcer Program here
 */
 
+//Extremely basic 3D vector
+struct vec3f {
+public:
+  const float x, y, z;
+  vec3f(float x, float y, float z) : x(x), y(y), z(z) {}
+
+  double hdist(vec3f other) {
+    vec3f _this = (*this);
+    double dx = _this.x - other.x;
+    double dz = _this.z - other.z;
+    return sqrt(dx * dx + dz * dz);
+  }
+
+  // Checks whether these two vectors are exactly equal.
+  bool operator==(const vec3f& other) {
+    vec3f _this = (*this);
+    return (_this.x == other.x) && (_this.y == other.y) && (_this.z == other.z);
+  }
+
+  // Checks whether these two vectors are not exactly equal.
+  bool operator!=(const vec3f& other) {
+    vec3f _this = (*this);
+    return (_this.x != other.x) || (_this.y != other.y) || (_this.z != other.z);
+  }
+};
+// custom formatter.
+std::ostream& operator<<(std::ostream& stream, const vec3f& vector) {
+  return stream << "(" << vector.x << ", " << vector.y << ", " << vector.z << ")";
+}
+
+// Pointer to a bully's values
+struct Bully {
+  float* const x;
+  float* const y;
+  float* const z;
+
+  float* const h_speed;
+  uint16_t* const yaw_1;
+  uint16_t* const yaw_2;
+
+public:
+  Bully(Game& game, int slot) :
+    x(game.addr<float>("gObjectPool", (slot * 1392) + 240)),
+    y(game.addr<float>("gObjectPool", (slot * 1392) + 244)),
+    z(game.addr<float>("gObjectPool", (slot * 1392) + 248)),
+    h_speed(game.addr<float>("gObjectPool", (slot * 1392) + 264)),
+    yaw_1(game.addr<uint16_t>("gObjectPool", (slot * 1392) + 280)),
+    yaw_2(game.addr<uint16_t>("gObjectPool", (slot * 1392) + 292)) {}
+
+  vec3f pos() {
+    return vec3f(*x, *y, *z);
+  }
+
+  void pos(vec3f val) {
+    *x = val.x;
+    *y = val.y;
+    *z = val.z;
+  }
+};
+
+// Pointers to Mario's values (that we need)
+struct Mario {
+  float* const x;
+  float* const y;
+  float* const z;
+
+public:
+  Mario(Game& game) :
+    x(game.addr<float>("gMarioStates", 60)),
+    y(game.addr<float>("gMarioStates", 64)),
+    z(game.addr<float>("gMarioStates", 68)) {}
+
+  vec3f pos() {
+    return vec3f(*x, *y, *z);
+  }
+
+  void pos(vec3f val) {
+    *x = val.x;
+    *y = val.y;
+    *z = val.z;
+  }
+};
+
+// a speed and angle that can be applied to a bully
+struct BullyState {
+  float speed;
+  uint16_t angle;
+};
+
+// Iterator for multibully's sake
+struct StateIterator {
+public:
+  StateIterator(float min_speed) {
+    //this is how you do it.
+    speed = f2i(min_speed);
+    angle = 0;
+  }
+
+  BullyState next() {
+    BullyState result = BullyState{
+      i2f(speed), angle
+    };
+
+    const uint16_t last_angle = angle;
+
+    if ((angle % 16) == 0)
+      angle += 1;
+    else
+      angle += 15;
+    // detect overflow and increment speed
+    if (angle < last_angle)
+      speed++;
+    return result;
+  }
+
+  uint32_t speed;
+  uint16_t angle;
+};
+
 // All the slots that can be replaced with bullies.
-const int BULLY_SLOTS[] = {
+const uint16_t BULLY_SLOTS[] = {
   // list(range(24)), unrolled
-  1, 2, 3, 4, 5, 6, 7, 8,
+  0, 1, 2, 3, 4, 5, 6, 7, 8,
   9, 10, 11, 12, 13, 14, 15,
   16, 17, 18, 19, 20, 21, 22, 23,
   24,
@@ -270,63 +347,45 @@ const int BULLY_SLOTS[] = {
   52, 53, 54, 55, 56, 57, 58, 60, 61, 63, 64, 65, 66, 67, 87,
   90, 91, 92, 93, 95, 96, 98, 99, 105, 106, 107 };
 
-struct Bully {
-  float* x;
-  float* y;
-  float* z;
+const vec3f BULLY_START_POS = vec3f(-2236, -2950, -566);
+const vec3f MARIO_HACK_POS = vec3f(-1945, -2918, -715);
+const vec3f TARGET_POS = vec3f(-1720, -2910, -460);
 
-  float* h_speed;
-  u16* yaw_1;
-  u16* yaw_2;
-
-public:
-  Bully(Game game, int slot) {
-    x = game.addr<float>("gObjectPool", (slot * OBJ_SIZE) + 240);
-    y = game.addr<float>("gObjectPool", (slot * OBJ_SIZE) + 244);
-    z = game.addr<float>("gObjectPool", (slot * OBJ_SIZE) + 248);
-
-    h_speed = game.addr<float>("gObjectPool", (slot * OBJ_SIZE) + 264);
-    yaw_1 = game.addr<u16>("gObjectPool", (slot * OBJ_SIZE) + 280);
-    yaw_1 = game.addr<u16>("gObjectPool", (slot * OBJ_SIZE) + 292);
+string ansi(std::initializer_list<uint8_t> codes) {
+  stringstream ss = stringstream();
+  ss << "\u001B[";
+  for (uint16_t code: codes) {
+    ss << code << ";";
   }
-};
+  string s = ss.str();
+  s[s.size() - 1] = 'm';
+  return s;
+}
 
 int main(int argc, cstr argv[]) {
-  assert(argc == 2, "Please specify param 1: Path to libsm64", 64);
+  // parse args
+  assert(argc > 1, "Please specify param 1: Path to libsm64", 64);
 
-  cerr << "wafel path is " << argv[1] << endl;
-
+  // setup libsm64
+  cerr << "Loading libsm64 from " << argv[1] << endl;
   Game game = Game(Version::VERSION_JP, argv[1]);
-  cerr << "libsm64 loaded" << endl;
   auto backup = game.alloc_slot();
 
   // Load M64
-  cerr << "Savestate allocated, running M64..." << endl;
-  M64 m64 = M64("..\\shared\\1Key_4_21_13_Padded.m64");
-  // save cerr format
-  ios* fmt_save = new ios(NULL);
-  fmt_save->copyfmt(cerr);
+  cerr << "Loading 1-Key inputs" << endl;
+  M64 m64 = libsm64::load_m64("..\\shared\\1Key_4_21_13_Padded.m64");
   // Step through m64
-  for (; !m64.eof(); m64++) {
-    auto input = *m64;
-    if ((m64.frame() % 60) == 0) {
-      cerr.width(3);
-      cerr << "Joystick: (" << (u16) input.stick_x << ", " << (u16) input.stick_y << ") ";
-      cerr << "Buttons: " << std::bitset<16>(input.buttons) << endl;
-      cerr.copyfmt(*fmt_save);
-    }
-    game.set_input(input);
+  for (size_t i = 0; i < m64.size(); i++) {
+    game.set_input(m64[i]);
     game.advance();
 
-    u16* star_count = game.addr<u16>("gMarioStates", 230);
-    // if ((m64.frame() % 1000) == 0) {
-    //   cerr.width();
-    //   cerr << "Frame " << m64.frame() << ", " << *star_count << " stars collected" << endl;
-    // }
-    cerr << "M64 frame " << m64.frame() << endl;
+    uint16_t* star_count = game.addr<uint16_t>("gMarioStates", 230);
+    if ((i % 1000) == 0) {
+      cerr << "Frame " << i << ", " << *star_count << " stars" << endl;
+    }
 
     // On the *special* frame
-    if (m64.frame() == 3286) {
+    if (i == 3286) {
       cerr << endl;
       // deactivate every object that doesn't need to be active
       for (int i = 0; i < 108; i++) {
@@ -339,23 +398,94 @@ int main(int argc, cstr argv[]) {
         } break;
         default: {
           //deactivate this object
-          u16* activeFlag = game.addr<u16>("gObjectPool", i * OBJ_SIZE + 180);
-          *activeFlag &= (u16)0xFFFE;
-          cerr << "Deactivated slot " + i << endl;
+          uint16_t* activeFlag = game.addr<uint16_t>("gObjectPool", (i * 1392) + 180);
+          *activeFlag &= (uint16_t)0xFFFE;
         } break;
         }
       }
-      // Copy our favourite bully to 67 other objects within the course
-      for (int i : BULLY_SLOTS) {
-        libsm64::copy_object(game, 27, i);
-        cerr << "Copied bully to slot " << i << endl;
+
+      // Copy our favourite bully to 67 other objects within the course.
+      // For some reason I have to do it here
+      for (uint16_t slot : BULLY_SLOTS) {
+        libsm64::copy_object(game, 27, slot);
       }
+      cerr << "All bullies set up" << endl;
       // Savestate, dump, and we're off!
-      game.save_slot(backup);
-      cerr << "Saved state" << endl;
+      game.save_state(backup);
+      cerr << "Savestate saved" << endl;
       libsm64::dump(backup);
-      cerr << "Dumped" << endl;
+      cerr << "Dumped savestate" << endl;
       break;
+    }
+  }
+  // Bruteforce constants
+
+  Mario mario = Mario(game);
+  vector<Bully> bullies = vector<Bully>();
+  for (uint16_t i : BULLY_SLOTS) {
+    bullies.push_back(Bully(game, i));
+  }
+  vector<BullyState> states = vector<BullyState>(bullies.size());
+
+  cerr << "All pointers init'd" << endl;
+
+  StateIterator iterator = StateIterator(4052000.0f);
+  {
+    fstream result = fstream("bully_results.txt", ios_base::out);
+    auto then = TIME_NOW;
+
+    while (i2f(iterator.speed) < 5000000.0f) {
+      game.load_state(backup);
+      for (int i = 0; i < bullies.size(); i++) {
+        BullyState next = iterator.next();
+        if (next.angle == 0) {
+          auto now = TIME_NOW;
+          auto diff = now - then;
+          auto past_speed = iterator.speed - 1;
+          cerr << std::setprecision(std::numeric_limits<long double>::digits10 + 1);
+          cerr << ansi({0, 32})<< "Float " << ansi({0, 96}) << i2f(past_speed) << 
+            ansi({0, 32}) <<" in " << diff << " ms" << ansi({0}) << endl;
+          then = now;
+        }
+        states[i] = next;
+        Bully& bully = bullies[i];
+
+        bully.pos(BULLY_START_POS);
+        *(bully.h_speed) = next.speed;
+        *(bully.yaw_1) = next.angle;
+        *(bully.yaw_2) = next.angle;
+      }
+
+      for (int frame = 0; frame < 25; frame++) {
+        mario.pos(MARIO_HACK_POS);
+        game.advance();
+
+        for (int i = 0; i < bullies.size(); i++) {
+          const double dist = bullies[i].pos().hdist(TARGET_POS);
+
+          if (
+            (dist <= 1000.0) &&
+            (bullies[i].pos() != BULLY_START_POS)
+            ) {
+            //file out
+            result << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+            result << "Target: " << TARGET_POS << " Frame: " << frame << endl;
+            result << L"Initial: │ Pos: " << BULLY_START_POS << " Speed: " << states[i].speed << " Angle: " << states[i].angle << endl;
+            result << L"─────────┼───────────────────────────────────────────────────────────────────────────" << endl;
+            result << "Final:   │ Pos: " << bullies[i].pos() << " Speed: " << *(bullies[i].h_speed) << " Angle: " << *(bullies[i].yaw_1) << endl;
+            result << L"─────────┴───────────────────────────────────────────────────────────────────────────" << endl;
+            result << "Distance to target: " << dist << endl << endl;
+            // COUT
+            cout << std::setprecision(std::numeric_limits<double>::digits10 + 1) << ansi({0, 93});
+            cout << "Target: " << TARGET_POS << " Frame: " << frame << endl;
+            cout << "Initial: │ Pos: " << BULLY_START_POS << " Speed: " << states[i].speed << " Angle: " << states[i].angle << endl;
+            cout << "─────────┼───────────────────────────────────────────────────────────────────────────" << endl;
+            cout << "Final:   │ Pos: " << bullies[i].pos() << " Speed: " << *(bullies[i].h_speed) << " Angle: " << *(bullies[i].yaw_1) << endl;
+            cout << "─────────┴───────────────────────────────────────────────────────────────────────────" << endl;
+            cout << "Distance to target: " << dist << endl << endl << ansi({0});
+          }
+        }
+      }
     }
   }
 

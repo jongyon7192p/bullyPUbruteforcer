@@ -38,7 +38,11 @@ class Game:
         return buffers
 
     def save_state(self, slot):
-        os.remove("dump.bin")
+        try:
+            os.remove("dump.bin")
+        except OSError:
+            pass
+        
         for segment, buffer in zip(self.segments, slot):
             C.memmove(buffer, self.dll._handle + segment['virtual_address'], segment['virtual_size'])
             with open("dump.bin", "wb+") as dump:
