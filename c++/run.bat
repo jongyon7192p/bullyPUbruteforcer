@@ -32,5 +32,6 @@ echo ----------------------------------------------
 build\main.exe %args% 2>&1
 echo:
 echo [0m----------------------------------------------
+echo returned with %ERRORLEVEL%
 pause
 @echo on

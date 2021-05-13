@@ -25,10 +25,10 @@ YOU WILL HAVE TO DEAL WITH THAT YOURSELF.
 #include <tuple>
 
 #include <limits>
-#include <chrono>
 
 #include <cstring>
 #include <cmath>
+#include <ctime>
 
 #include <windows.h>
 #include <tchar.h>
@@ -47,12 +47,9 @@ YOU WILL HAVE TO DEAL WITH THAT YOURSELF.
   }
 #define array_size(arr, type) (sizeof(arr) / sizeof(type))
 
-#define i2f(i) (*(float*)&i)
-#define f2i(i) (*(uint32_t*)&i)
-
 // Constant macros
 #define SPECIAL_FRAME 3285
-#define TIME_NOW std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()
+#define TIME_NOW time(nullptr)
 
 using std::cout, std::cerr, std::endl, std::fstream, std::ios_base, std::stringstream;
 using std::string, std::vector, std::array, std::tuple;
@@ -113,8 +110,8 @@ namespace libsm64 {
 
     Slot alloc_slot() {
       Slot buffers = {
-        vector<uint8_t>(m_regions[0].size + 65536),
-        vector<uint8_t>(m_regions[1].size + 65536)
+        vector<uint8_t>(m_regions[0].size),
+        vector<uint8_t>(m_regions[1].size)
       };
       return buffers;
     }
@@ -210,6 +207,15 @@ using libsm64::Game, libsm64::Version, libsm64::M64;
 /*
 Bruteforcer Program here
 */
+
+//Reinterprets the bytes of a uint32_t as a float.
+float i2f(const uint32_t i) {
+  return (*(float*)&i);
+}
+//Reinterprets the bytes of a float as a uint32_t.
+uint32_t f2i(const float i) {
+  return (*(uint32_t*)&i);
+}
 
 //Extremely basic 3D vector
 struct vec3f {
@@ -347,10 +353,22 @@ const uint16_t BULLY_SLOTS[] = {
   52, 53, 54, 55, 56, 57, 58, 60, 61, 63, 64, 65, 66, 67, 87,
   90, 91, 92, 93, 95, 96, 98, 99, 105, 106, 107 };
 
+/*
+CONSTANTS FOR BRUTEFORCING
+*/
+
 const vec3f BULLY_START_POS = vec3f(-2236, -2950, -566);
 const vec3f MARIO_HACK_POS = vec3f(-1945, -2918, -715);
 const vec3f TARGET_POS = vec3f(-1720, -2910, -460);
 
+const uint32_t MAX_FRAMES = 25;
+const float MAX_DIST = 1000.0f;
+
+const float MIN_SPEED = 4052000.0f;
+const float MAX_SPEED = 5000000.0f;
+
+
+//generates an ansi code from a list of codes
 string ansi(std::initializer_list<uint8_t> codes) {
   stringstream ss = stringstream();
   ss << "\u001B[";
@@ -405,16 +423,13 @@ int main(int argc, cstr argv[]) {
       }
 
       // Copy our favourite bully to 67 other objects within the course.
-      // For some reason I have to do it here
       for (uint16_t slot : BULLY_SLOTS) {
         libsm64::copy_object(game, 27, slot);
       }
       cerr << "All bullies set up" << endl;
-      // Savestate, dump, and we're off!
+      // Savestate. Everything is basically ready.
       game.save_state(backup);
       cerr << "Savestate saved" << endl;
-      libsm64::dump(backup);
-      cerr << "Dumped savestate" << endl;
       break;
     }
   }
@@ -429,12 +444,12 @@ int main(int argc, cstr argv[]) {
 
   cerr << "All pointers init'd" << endl;
 
-  StateIterator iterator = StateIterator(4052000.0f);
+  StateIterator iterator = StateIterator(MIN_SPEED);
   {
     fstream result = fstream("bully_results.txt", ios_base::out);
     auto then = TIME_NOW;
 
-    while (i2f(iterator.speed) < 5000000.0f) {
+    while (i2f(iterator.speed) < MAX_SPEED) {
       game.load_state(backup);
       for (int i = 0; i < bullies.size(); i++) {
         BullyState next = iterator.next();
@@ -456,25 +471,25 @@ int main(int argc, cstr argv[]) {
         *(bully.yaw_2) = next.angle;
       }
 
-      for (int frame = 0; frame < 25; frame++) {
+      for (uint32_t frame = 0; frame < MAX_FRAMES; frame++) {
         mario.pos(MARIO_HACK_POS);
         game.advance();
 
-        for (int i = 0; i < bullies.size(); i++) {
+        for (uint32_t i = 0; i < bullies.size(); i++) {
           const double dist = bullies[i].pos().hdist(TARGET_POS);
 
           if (
-            (dist <= 1000.0) &&
+            (dist <= MAX_DIST) &&
             (bullies[i].pos() != BULLY_START_POS)
             ) {
             //file out
             result << std::setprecision(std::numeric_limits<double>::digits10 + 1);
-            result << "Target: " << TARGET_POS << " Frame: " << frame << endl;
+            result << L"Target: " << TARGET_POS << " Frame: " << frame << endl;
             result << L"Initial: │ Pos: " << BULLY_START_POS << " Speed: " << states[i].speed << " Angle: " << states[i].angle << endl;
             result << L"─────────┼───────────────────────────────────────────────────────────────────────────" << endl;
-            result << "Final:   │ Pos: " << bullies[i].pos() << " Speed: " << *(bullies[i].h_speed) << " Angle: " << *(bullies[i].yaw_1) << endl;
+            result << L"Final:   │ Pos: " << bullies[i].pos() << " Speed: " << *(bullies[i].h_speed) << " Angle: " << *(bullies[i].yaw_1) << endl;
             result << L"─────────┴───────────────────────────────────────────────────────────────────────────" << endl;
-            result << "Distance to target: " << dist << endl << endl;
+            result << L"Distance to target: " << dist << endl << endl;
             // COUT
             cout << std::setprecision(std::numeric_limits<double>::digits10 + 1) << ansi({0, 93});
             cout << "Target: " << TARGET_POS << " Frame: " << frame << endl;
@@ -488,7 +503,5 @@ int main(int argc, cstr argv[]) {
       }
     }
   }
-
-
   return 0;
 }
