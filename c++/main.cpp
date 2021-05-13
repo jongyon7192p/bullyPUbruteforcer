@@ -25,13 +25,12 @@ YOU WILL HAVE TO DEAL WITH THAT YOURSELF.
 #include <tuple>
 
 #include <limits>
+#include <chrono>
 
 #include <cstring>
 #include <cmath>
-#include <ctime>
 
 #include <windows.h>
-#include <tchar.h>
 
 // Type macros
 #define wcstr wchar_t*
@@ -47,9 +46,8 @@ YOU WILL HAVE TO DEAL WITH THAT YOURSELF.
   }
 #define array_size(arr, type) (sizeof(arr) / sizeof(type))
 
-// Constant macros
+// Name macros
 #define SPECIAL_FRAME 3285
-#define TIME_NOW time(nullptr)
 
 using std::cout, std::cerr, std::endl, std::fstream, std::ios_base, std::stringstream;
 using std::string, std::vector, std::array, std::tuple;
@@ -227,7 +225,7 @@ public:
     vec3f _this = (*this);
     double dx = _this.x - other.x;
     double dz = _this.z - other.z;
-    return sqrt(dx * dx + dz * dz);
+    return hypot(dx, dz);
   }
 
   // Checks whether these two vectors are exactly equal.
@@ -242,7 +240,7 @@ public:
     return (_this.x != other.x) || (_this.y != other.y) || (_this.z != other.z);
   }
 };
-// custom formatter.
+// custom formatter for vec3f
 std::ostream& operator<<(std::ostream& stream, const vec3f& vector) {
   return stream << "(" << vector.x << ", " << vector.y << ", " << vector.z << ")";
 }
@@ -380,6 +378,12 @@ string ansi(std::initializer_list<uint8_t> codes) {
   return s;
 }
 
+//equivalent to System.currentTimeMillis()
+size_t current_time_millis() {
+  namespace chr = std::chrono;
+  return chr::duration_cast<chr::milliseconds>(chr::system_clock::now().time_since_epoch()).count();
+}
+
 int main(int argc, cstr argv[]) {
   // parse args
   assert(argc > 1, "Please specify param 1: Path to libsm64", 64);
@@ -447,14 +451,14 @@ int main(int argc, cstr argv[]) {
   StateIterator iterator = StateIterator(MIN_SPEED);
   {
     fstream result = fstream("bully_results.txt", ios_base::out);
-    auto then = TIME_NOW;
+    auto then = current_time_millis();
 
     while (i2f(iterator.speed) < MAX_SPEED) {
       game.load_state(backup);
       for (int i = 0; i < bullies.size(); i++) {
         BullyState next = iterator.next();
-        if (next.angle == 0) {
-          auto now = TIME_NOW;
+        if (next.angle == 0 && next.speed != MIN_SPEED) {
+          auto now = current_time_millis();
           auto diff = now - then;
           auto past_speed = iterator.speed - 1;
           cerr << std::setprecision(std::numeric_limits<long double>::digits10 + 1);
@@ -492,12 +496,12 @@ int main(int argc, cstr argv[]) {
             result << L"Distance to target: " << dist << endl << endl;
             // COUT
             cout << std::setprecision(std::numeric_limits<double>::digits10 + 1) << ansi({0, 93});
-            cout << "Target: " << TARGET_POS << " Frame: " << frame << endl;
-            cout << "Initial: │ Pos: " << BULLY_START_POS << " Speed: " << states[i].speed << " Angle: " << states[i].angle << endl;
-            cout << "─────────┼───────────────────────────────────────────────────────────────────────────" << endl;
-            cout << "Final:   │ Pos: " << bullies[i].pos() << " Speed: " << *(bullies[i].h_speed) << " Angle: " << *(bullies[i].yaw_1) << endl;
-            cout << "─────────┴───────────────────────────────────────────────────────────────────────────" << endl;
-            cout << "Distance to target: " << dist << endl << endl << ansi({0});
+            cout << L"Target: " << TARGET_POS << " Frame: " << frame << endl;
+            cout << L"Initial: │ Pos: " << BULLY_START_POS << " Speed: " << states[i].speed << " Angle: " << states[i].angle << endl;
+            cout << L"─────────┼───────────────────────────────────────────────────────────────────────────" << endl;
+            cout << L"Final:   │ Pos: " << bullies[i].pos() << " Speed: " << *(bullies[i].h_speed) << " Angle: " << *(bullies[i].yaw_1) << endl;
+            cout << L"─────────┴───────────────────────────────────────────────────────────────────────────" << endl;
+            cout << L"Distance to target: " << dist << endl << endl << ansi({0});
           }
         }
       }
